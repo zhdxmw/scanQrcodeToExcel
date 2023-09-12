@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+        <meta name="viewport" content="width=device-width,initial-scale=1.0,minimum-scale=1.0,maximum-scale=1.0,user-scalable=no">
+        <meta name="apple-mobile-web-app-capable" content="yes"/>
+        <meta name="full-screen" content="true"/>
+        <meta name="x5-fullscreen" content="true"/>
+        <meta http-equiv="expires" content="0"/>
+        <title>扫码生成excel</title>
+        <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+        <script src="https://unpkg.com/vue@next"></script>
+        <!-- import CSS -->
+        <link rel="stylesheet" href="https://unpkg.com/element-plus/dist/index.css">
+        <!-- import JavaScript -->
+        <script src="https://unpkg.com/element-plus"></script>
+        <script src="https://unpkg.com/element-plus/dist/locale/zh-cn"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha512-r22gChDnGvBylk90+2e/ycr3RVrDi8DIOkIGNhJlKfuyQM4tIRAI062MaV8sfjQKYVGjOBaZBOA87z+IhZE9DA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+        <style>
+          body{
+            width: 100%;
+            height: 100%;
+            background: url(https://images2.alphacoders.com/985/985330.jpg);
+          }
+          #particles-js{
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 99999;
+            pointer-events: none;
+          }
+          #app{
+            padding: 10px;
+           
+          }
+          .list-title{
+            height: 48px;
+            line-height: 48px;
+            background: #ccc;
+            margin-top: 20px;
+          }
+          .list-title .el-col{
+            border-right: 1px solid #ffffff;
+            padding-left: 8px;
+          }
+
+          .list-content .el-col{
+            padding-left: 8px;
+          }
+
+          .list-content {
+              height: 48px;
+              line-height: 48px;
+              background: #efefef;
+          }
+
+          .list-content:nth-child(even){
+            background: #fafafa;
+
+          }
+          .remark{
+            background: #dfe5dd;
+            border-radius: 8px;
+            padding: 10px;
+          }
+          .remark .title{
+            font-size: 16px;
+            font-weight: bold;
+            color: #409eff;
+          }
+          .remark .desc{
+            color: #409eff;
+          }
+
+        </style>
+    </head>
+    <body>
+        <div id="particles-js"></div>
+        <div id="app">
+          <div class="remark" style="margin-bottom: 20px;">
+            <div class="title">操作指南</div>
+            <div class="desc">
+              <p>使用前先设置生产日期，和开始流水号！ </p>
+              <p>点击输入框后使用扫码枪扫码后，会自动插入数据。可连续扫描！！</p>
+            </div>
+          </div>
+
+          <el-tabs
+            v-model="activeName"
+            type="card"
+            class="demo-tabs"
+            @tab-click="handleTabChange"
+          >
+            <el-tab-pane label="内标数据" name="inner" style="padding: 0 20px 0 20px;">
+              <el-row :gutter="20" style="color: #ffffff;">
+                <el-col :span="6">
+                  生产日期：<el-date-picker
+                    v-model="date"
+                    type="date"
+                    placeholder="选择日期"
+                    format="YYYY/MM/DD"
+                    @change="dateChange"
+                  />
+                </el-col>
+                <el-col :span="18">
+                  <el-input v-model="scanTxt" @keyup.enter.native="handleFilter" @change="txtChange" placeholder="请扫码" autofocus />
+                </el-col>
+              </el-row>
+              <el-row style="margin-top: 20px; color: #ffffff;">
+                <el-col :span="6">
+                  开始流水码： <el-input-number
+                    v-model="serial"
+                    :controls="false"
+                    :precision="0"
+                    controls-position="right"
+                  />
+                </el-col>
+                <el-col :span="18">
+                  <el-button type="primary" @click="exportExcel">导出内标excel</el-button>
+                  <el-popconfirm title="确认清空列表" @confirm="confirmDelete">
+                    <template #reference>
+                      <el-button>清空内标列表</el-button>
+                    </template>
+                  </el-popconfirm>
+                </el-col>
+              </el-row>
+  
+              <el-row class="list-title">
+                <el-col :span="3">
+                  Date Code
+                </el-col>
+                <el-col :span="3">
+                  Lot No.
+                </el-col>
+                <el-col :span="3">
+                  数量
+                </el-col>
+                <el-col :span="3">
+                  流水码
+                </el-col>
+                <el-col :span="10">
+                  二维码
+                </el-col>
+                <el-col :span="2">
+                  操作
+                </el-col>
+              </el-row>
+  
+              <div v-for='(item, index) in list' :key='item.serialNum' class="list-content">
+                <el-row >
+                  <el-col :span="3">
+                    {{item.date}}
+                  </el-col>
+                  <el-col :span="3">
+                    {{item.lotNo}}
+                  </el-col>
+                  <el-col :span="3">
+                    {{item.num}}
+                  </el-col>
+                  <el-col :span="3">
+                    {{item.serialNum}}
+                  </el-col>
+                  <el-col :span="10">
+                    {{item.qrcode}}
+                  </el-col>
+                  <el-col :span="2">
+                    <el-button type="primary" @click="deleteItem(index)" text>删除</el-button>
+                  </el-col>
+                </el-row>
+              </div>
+            </el-tab-pane>
+            <el-tab-pane label="外标数据" name="outer" style="padding: 0 20px 0 20px;">
+              <el-row :gutter="20" style="color: #ffffff;">
+                <el-col :span="6">
+                  生产日期：<el-date-picker
+                    v-model="outDate"
+                    type="date"
+                    placeholder="选择日期"
+                    format="YYYY/MM/DD"
+                    @change="outDateChange"
+                  />
+                </el-col>
+                <el-col :span="18">
+                  <el-input v-model="scanOutTxt" @keyup.enter.native="handleOutFilter" placeholder="请扫码" autofocus />
+                </el-col>
+              </el-row>
+              <el-row style="margin-top: 20px; color: #ffffff;">
+                <el-col :span="6">
+                  开始流水码： <el-input-number
+                    v-model="outSerial"
+                    :controls="false"
+                    :precision="0"
+                    controls-position="right"
+                  />
+                </el-col>
+                <el-col :span="18">
+                  <span>
+                    出货日期：<el-date-picker
+                      v-model="endDate"
+                      type="date"
+                      placeholder="选择日期"
+                      format="YYYY/MM/DD"
+                      @change="endChange"
+                    />
+                  </span>
+                  <el-button type="primary" @click="exportOutExcel" style="margin-left: 16px;">导出外标excel</el-button>
+                  <el-popconfirm title="确认清空列表" @confirm="confirmDelete">
+                    <template #reference>
+                      <el-button>清空外标列表</el-button>
+                    </template>
+                  </el-popconfirm>
+                </el-col>
+              </el-row>
+  
+              <el-row class="list-title">
+                <el-col :span="3">
+                  生产日期
+                </el-col>
+                <el-col :span="2">
+                  出货日期
+                </el-col>
+                <el-col :span="3">
+                  Lot No.
+                </el-col>
+                <el-col :span="2">
+                  数量
+                </el-col>
+                <el-col :span="2">
+                  流水码
+                </el-col>
+                <el-col :span="10">
+                  二维码
+                </el-col>
+                <el-col :span="2">
+                  操作
+                </el-col>
+              </el-row>
+  
+              <div v-for='(item, index) in outList' :key='item.serialNum' class="list-content">
+                <el-row >
+                  <el-col :span="3">
+                    {{item.date}}
+                  </el-col>
+                  <el-col :span="2">
+                    {{item.endDate}}
+                  </el-col>
+                  <el-col :span="3">
+                    {{item.lotNo}}
+                  </el-col>
+                  <el-col :span="2">
+                    {{item.num}}
+                  </el-col>
+                  <el-col :span="2">
+                    {{item.serialNum}}
+                  </el-col>
+                  <el-col :span="10">
+                    {{item.qrcode}}
+                  </el-col>
+                  <el-col :span="2">
+                    <el-button type="primary" @click="deleteItem(index)" text>删除</el-button>
+                  </el-col>
+                </el-row>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+
+            
+          </div>
+
+        <script>
+          const _json = {
+            "particles": {
+              "number": {
+                "value": 80,
+                "density": {
+                  "enable": true,
+                  "value_area": 800
+                }
+              },
+              "color": {
+                "value": "#ffffff"
+              },
+              "shape": {
+                "type": "circle",
+                "stroke": {
+                  "width": 0,
+                  "color": "#000000"
+                },
+                "polygon": {
+                  "nb_sides": 5
+                },
+                "image": {
+                  "src": "img/github.svg",
+                  "width": 100,
+                  "height": 100
+                }
+              },
+              "opacity": {
+                "value": 0.5,
+                "random": false,
+                "anim": {
+                  "enable": false,
+                  "speed": 1,
+                  "opacity_min": 0.1,
+                  "sync": false
+                }
+              },
+              "size": {
+                "value": 5,
+                "random": true,
+                "anim": {
+                  "enable": false,
+                  "speed": 40,
+                  "size_min": 0.1,
+                  "sync": false
+                }
+              },
+              "line_linked": {
+                "enable": true,
+                "distance": 150,
+                "color": "#ffffff",
+                "opacity": 0.4,
+                "width": 1
+              },
+              "move": {
+                "enable": true,
+                "speed": 6,
+                "direction": "none",
+                "random": false,
+                "straight": false,
+                "out_mode": "out",
+                "attract": {
+                  "enable": false,
+                  "rotateX": 600,
+                  "rotateY": 1200
+                }
+              }
+            },
+            "interactivity": {
+              "detect_on": "canvas",
+              "events": {
+                "onhover": {
+                  "enable": true,
+                  "mode": "repulse"
+                },
+                "onclick": {
+                  "enable": true,
+                  "mode": "push"
+                },
+                "resize": true
+              },
+              "modes": {
+                "grab": {
+                  "distance": 400,
+                  "line_linked": {
+                    "opacity": 1
+                  }
+                },
+                "bubble": {
+                  "distance": 400,
+                  "size": 40,
+                  "duration": 2,
+                  "opacity": 8,
+                  "speed": 3
+                },
+                "repulse": {
+                  "distance": 200
+                },
+                "push": {
+                  "particles_nb": 4
+                },
+                "remove": {
+                  "particles_nb": 2
+                }
+              }
+            },
+            "retina_detect": true,
+            "config_demo": {
+              "hide_card": false,
+              "background_color": "#b61924",
+              "background_image": "",
+              "background_position": "50% 50%",
+              "background_repeat": "no-repeat",
+              "background_size": "cover"
+            }
+          }
+          particlesJS('particles-js',
+            {
+              "particles": {
+                "number": {
+                  "value": 80,
+                  "density": {
+                    "enable": true,
+                    "value_area": 800
+                  }
+                },
+                "color": {
+                  "value": "#ffffff"
+                },
+                "shape": {
+                  "type": "circle",
+                  "stroke": {
+                    "width": 0,
+                    "color": "#000000"
+                  },
+                  "polygon": {
+                    "nb_sides": 5
+                  },
+                  "image": {
+                    "src": "img/github.svg",
+                    "width": 100,
+                    "height": 100
+                  }
+                },
+                "opacity": {
+                  "value": 0.5,
+                  "random": false,
+                  "anim": {
+                    "enable": false,
+                    "speed": 1,
+                    "opacity_min": 0.1,
+                    "sync": false
+                  }
+                },
+                "size": {
+                  "value": 5,
+                  "random": true,
+                  "anim": {
+                    "enable": false,
+                    "speed": 40,
+                    "size_min": 0.1,
+                    "sync": false
+                  }
+                },
+                "line_linked": {
+                  "enable": true,
+                  "distance": 150,
+                  "color": "#ffffff",
+                  "opacity": 0.4,
+                  "width": 1
+                },
+                "move": {
+                  "enable": true,
+                  "speed": 6,
+                  "direction": "none",
+                  "random": false,
+                  "straight": false,
+                  "out_mode": "out",
+                  "attract": {
+                    "enable": false,
+                    "rotateX": 600,
+                    "rotateY": 1200
+                  }
+                }
+              },
+              "interactivity": {
+                "detect_on": "canvas",
+                "events": {
+                  "onhover": {
+                    "enable": true,
+                    "mode": "repulse"
+                  },
+                  "onclick": {
+                    "enable": true,
+                    "mode": "push"
+                  },
+                  "resize": true
+                },
+                "modes": {
+                  "grab": {
+                    "distance": 400,
+                    "line_linked": {
+                      "opacity": 1
+                    }
+                  },
+                  "bubble": {
+                    "distance": 400,
+                    "size": 40,
+                    "duration": 2,
+                    "opacity": 8,
+                    "speed": 3
+                  },
+                  "repulse": {
+                    "distance": 200
+                  },
+                  "push": {
+                    "particles_nb": 4
+                  },
+                  "remove": {
+                    "particles_nb": 2
+                  }
+                }
+              },
+              "retina_detect": true,
+              "config_demo": {
+                "hide_card": false,
+                "background_color": "#b61924",
+                "background_image": "",
+                "background_position": "50% 50%",
+                "background_repeat": "no-repeat",
+                "background_size": "cover"
+              }
+            }
+
+          );
+          const { createApp, ref, nextTick } = Vue
+          const app = createApp({
+            setup() {
+              const list = ref([])
+              const outList = ref([])
+              const scanTxt = ref('')
+              const scanOutTxt = ref('')
+              const date = ref(undefined)
+              const formDate = ref('')
+              const outDate = ref(undefined)
+              const formOutDate = ref('')
+              const endDate = ref(undefined)
+              const formEndDate = ref('')
+              const serial = ref(2000)
+              const outSerial = ref(2000)
+              const activeName = ref('inner')
+
+              const exportExcel = () => {
+                if(!list.value.length) {
+                  alert('请先扫码导入数据')
+                  return
+                }
+                const exportList = list.value.map((item) => {
+                  return Object.values(item)
+                })
+             
+                const data = [
+                  ['RR PN', 'RR PN条码', 'Verdor Code', 'Verdor Code条码', 'MPN', 'MPN条码', 'Date Code', 'Date Code条码', 'Lot No.', 'Lot No.条码', '数量', '数量条码', '供应商名称', '制作商名称', '规格型号', 'RoHS标识', '流水码', '二维码'],
+                  ...exportList
+                ];
+                const worksheet = XLSX.utils.aoa_to_sheet(data);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+                const fileName = `${Date.now()}内标数据库.xls`; // 导出的文件名
+                XLSX.writeFile(workbook, fileName);
+              }
+
+              const exportOutExcel = () => {
+                if(!outList.value.length) {
+                  alert('请先扫码导入数据')
+                  return
+                }
+                const exportList = outList.value.map((item) => {
+                  return Object.values(item)
+                })
+             
+                const data = [
+                  ['客户名称', 'Roborock PN', '供应商名称', '制作商名称', 'MPN', '规格描述', 'Lot No.', '生产日期', '出货日期', '流水码', '数量', 'RoHS标识', 'PASS标志', '二维码'],
+                  ...exportList
+                ];
+                const worksheet = XLSX.utils.aoa_to_sheet(data);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+                const fileName = `${Date.now()}外标数据库.xls`; // 导出的文件名
+                XLSX.writeFile(workbook, fileName);
+              }
+
+              const handleTabChange = (tab) => {
+                activeName.value =  tab.props.name;
+              }
+
+              const txtChange = (txt) =>{
+                console.log('txt', txt);
+              }
+
+              const handleFilter = () => {
+                if(!scanTxt.value) {
+                  return
+                }
+                if(!formDate.value) {
+                  alert('请先设置生产日期')
+                  return
+                }
+                if(serial.value === undefined) {
+                  alert('请先设置流水号')
+                  return
+                }
+                // const str = 'ST;0727012;SDB16HT;;23-07-24-01;3,000 ;MK0H40W0804C01-P;DDBN80032-JBZO11';
+                const arr = scanTxt.value.split(';')
+                if(arr.length) {
+                  const num = arr[5].replace(',', '').replace(' ', '');
+                  const lotNo = arr[6];
+                  const _serial = serial.value + list.value.length;
+                  const qrcode = `RR001060018,12084,SDB16HT,${formDate.value},${lotNo},${num},${_serial}`
+                  
+                  list.value.push({
+                    rrpn: 'RR001060018',
+                    rrpnCode: 'RR001060018',
+                    verdor: 12084,
+                    verdorCode: 12084,
+                    mpn: 'SDB16HT',
+                    mpnCode: 'SDB16HT',
+                    date: formDate.value,
+                    dateCode: formDate.value,
+                    lotNo,
+                    lotNoCode: lotNo,
+                    num,
+                    numCode: num,
+                    vendor: '苏州厚如电子科技有限公司',
+                    producer: '先科',
+                    models: '肖特基二极管 SMD Schottky Barrier Diodes,If=1A',
+                    roHS: 'RoHS+HF',
+                    serialNum: _serial,
+                    qrcode
+                  })
+                  scanTxt.value = undefined
+                }
+              }
+
+              const handleOutFilter = () => {
+                if(!scanOutTxt.value) {
+                  return
+                }
+                if(!formOutDate.value) {
+                  alert('请先设置生产日期')
+                  return
+                }
+                if(!formEndDate.value) {
+                  alert('请先设置出货日期')
+                  return
+                }
+                if(outSerial.value === undefined) {
+                  alert('请先设置流水号')
+                  return
+                }
+                // const str = 'ST;0727012;SDB16HT;;23-07-24-01;24,000;MK0H40W0804C01-P;DDBN80034-JBZO11';
+                const arr = scanOutTxt.value.split(';')
+                // const arr = str.split(';')
+                if(arr.length) {
+                  const num = arr[5].replace(',', '').replace(' ', '');
+                  const lotNo = arr[6];
+                  const _serial = outSerial.value + outList.value.length;
+                  const qrcode = `RR001060018,12084,SDB16HT,${formOutDate.value},${lotNo},${_serial},${num},`
+                  // ['客户名称', 'Roborock PN', '供应商名称', '制作商名称', 'MPN', '规格描述', 'Lot No.', '生产日期', '出货日期', '流水码', '数量', 'RoHS标识', 'PASS标志', '二维码'],
+                  outList.value.push({
+                    clientName: '惠州石头',
+                    rrpnCode: 'RR001060018',
+                    vendor: '苏州厚如电子科技有限公司',
+                    producer: '先科',
+                    mpn: 'SDB16HT',
+                    models: '肖特基二极管 SMD Schottky Barrier Diodes,If=1A',
+                    lotNo,
+                    date: formOutDate.value,
+                    endDate: formEndDate.value,
+                    serialNum: _serial,
+                    num,
+                    roHS: 'RoHS+HF',
+                    pass: 'PASS',
+                    qrcode
+                  })
+                  scanOutTxt.value = undefined
+                }
+              }
+
+              const dateChange = (event) => {
+                const _date = new Date(event)
+                const month = _date.getMonth() + 1 >= 10 ? _date.getMonth() + 1 : `0${_date.getMonth() + 1}`;
+                const day = _date.getDate() >= 10 ? _date.getDate() : `0${_date.getDate()}`
+                formDate.value = `${_date.getFullYear()}${month}${day}`
+              }
+              const outDateChange = (event) => {
+                const _date = new Date(event)
+                const month = _date.getMonth() + 1 >= 10 ? _date.getMonth() + 1 : `0${_date.getMonth() + 1}`;
+                const day = _date.getDate() >= 10 ? _date.getDate() : `0${_date.getDate()}`
+                formOutDate.value = `${_date.getFullYear()}${month}${day}`
+              }
+
+              const endChange = (event) => {
+                const _date = new Date(event)
+                const month = _date.getMonth() + 1 >= 10 ? _date.getMonth() + 1 : `0${_date.getMonth() + 1}`;
+                const day = _date.getDate() >= 10 ? _date.getDate() : `0${_date.getDate()}`
+                formEndDate.value = `${_date.getFullYear()}${month}${day}`
+              }
+
+              const confirmDelete = () => {
+                if(activeName.value === 'inner') {
+                  list.value = []
+                } else {
+                  outList.value = []
+                }
+              }
+
+              const deleteItem = (index) => {
+                if(activeName.value === 'inner') {
+                  list.value.splice(index, 1);
+                } else {
+                  outList.value.splice(index, 1);
+                }
+              }
+
+              return {
+                list,
+                scanTxt,
+                date,
+                scanOutTxt,
+                outList,
+                serial,
+                activeName,
+                outSerial,
+                outDate,
+                endDate,
+                formEndDate,
+                txtChange,
+                exportExcel,
+                handleFilter,
+                dateChange,
+                deleteItem,
+                confirmDelete,
+                handleTabChange,
+                outDateChange,
+                endChange,
+                handleOutFilter,
+                exportOutExcel
+              }
+            },
+
+          })
+          app.use(ElementPlus, {
+            locale: ElementPlusLocaleZhCn,
+          })
+          app.mount('#app')
+     
+        </script>
+    </body>
+</html>
